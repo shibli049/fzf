@@ -97,7 +97,7 @@ Alternatively, you can "git clone" this repository to any directory and run
 [install](https://github.com/junegunn/fzf/blob/master/install) script.
 
 ```sh
-git clone --depth 1 https://github.com/junegunn/fzf.git ~/.fzf
+git clone --depth 1 https://github.com/shibli049/fzf.git ~/.fzf
 ~/.fzf/install
 ```
 
