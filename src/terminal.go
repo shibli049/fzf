@@ -25,6 +25,8 @@ import (
 var placeholder *regexp.Regexp
 var activeTempFiles []string
 
+const ellipsis string = ".."
+
 func init() {
 	placeholder = regexp.MustCompile(`\\?(?:{[+sf]*[0-9,-.]*}|{q}|{\+?f?nf?})`)
 	activeTempFiles = []string{}
@@ -73,6 +75,7 @@ type Terminal struct {
 	queryLen     [2]int
 	layout       layoutType
 	fullscreen   bool
+	keepRight    bool
 	hscroll      bool
 	hscrollOff   int
 	wordRubout   string
@@ -397,6 +400,7 @@ func NewTerminal(opts *Options, eventBox *util.EventBox) *Terminal {
 		queryLen:    [2]int{0, 0},
 		layout:      opts.Layout,
 		fullscreen:  fullscreen,
+		keepRight:   opts.KeepRight,
 		hscroll:     opts.Hscroll,
 		hscrollOff:  opts.HscrollOff,
 		wordRubout:  wordRubout,
@@ -999,34 +1003,41 @@ func (t *Terminal) printHighlighted(result Result, attr tui.Attr, col1 tui.Color
 	maxe = util.Constrain(maxe+util.Min(maxWidth/2-2, t.hscrollOff), 0, len(text))
 	displayWidth := t.displayWidthWithLimit(text, 0, maxWidth)
 	if displayWidth > maxWidth {
+		transformOffsets := func(diff int32) {
+			for idx, offset := range offsets {
+				b, e := offset.offset[0], offset.offset[1]
+				b += 2 - diff
+				e += 2 - diff
+				b = util.Max32(b, 2)
+				offsets[idx].offset[0] = b
+				offsets[idx].offset[1] = util.Max32(b, e)
+			}
+		}
 		if t.hscroll {
-			// Stri..
-			if !t.overflow(text[:maxe], maxWidth-2) {
+			if t.keepRight && pos == nil {
+				trimmed, diff := t.trimLeft(text, maxWidth-2)
+				transformOffsets(diff)
+				text = append([]rune(ellipsis), trimmed...)
+			} else if !t.overflow(text[:maxe], maxWidth-2) {
+				// Stri..
 				text, _ = t.trimRight(text, maxWidth-2)
-				text = append(text, []rune("..")...)
+				text = append(text, []rune(ellipsis)...)
 			} else {
 				// Stri..
 				if t.overflow(text[maxe:], 2) {
-					text = append(text[:maxe], []rune("..")...)
+					text = append(text[:maxe], []rune(ellipsis)...)
 				}
 				// ..ri..
 				var diff int32
 				text, diff = t.trimLeft(text, maxWidth-2)
 
 				// Transform offsets
-				for idx, offset := range offsets {
-					b, e := offset.offset[0], offset.offset[1]
-					b += 2 - diff
-					e += 2 - diff
-					b = util.Max32(b, 2)
-					offsets[idx].offset[0] = b
-					offsets[idx].offset[1] = util.Max32(b, e)
-				}
-				text = append([]rune(".."), text...)
+				transformOffsets(diff)
+				text = append([]rune(ellipsis), text...)
 			}
 		} else {
 			text, _ = t.trimRight(text, maxWidth-2)
-			text = append(text, []rune("..")...)
+			text = append(text, []rune(ellipsis)...)
 
 			for idx, offset := range offsets {
 				offsets[idx].offset[0] = util.Min32(offset.offset[0], int32(maxWidth-2))
@@ -1411,13 +1422,13 @@ func (t *Terminal) executeCommand(template string, forcePlus bool, background bo
 		cmd.Stderr = os.Stderr
 		t.tui.Pause(true)
 		cmd.Run()
-		t.tui.Resume(true)
+		t.tui.Resume(true, false)
 		t.redraw()
 		t.refresh()
 	} else {
 		t.tui.Pause(false)
 		cmd.Run()
-		t.tui.Resume(false)
+		t.tui.Resume(false, false)
 	}
 	cleanTemporaryFiles()
 }
@@ -1690,7 +1701,7 @@ func (t *Terminal) Loop() {
 					case reqRefresh:
 						t.suppress = false
 					case reqReinit:
-						t.tui.Resume(t.fullscreen)
+						t.tui.Resume(t.fullscreen, true)
 						t.redraw()
 					case reqRedraw:
 						t.redraw()
