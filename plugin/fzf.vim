@@ -236,9 +236,13 @@ function! s:common_sink(action, lines) abort
   endif
   try
     let empty = empty(s:fzf_expand('%')) && line('$') == 1 && empty(getline(1)) && !&modified
-    let autochdir = &autochdir
-    set noautochdir
+    " Preserve the current working directory in case it's changed during
+    " the execution (e.g. `set autochdir` or `autocmd BufEnter * lcd ...`)
+    let cwd = exists('w:fzf_pushd') ? w:fzf_pushd.dir : expand('%:p:h')
     for item in a:lines
+      if item[0] != '~' && item !~ (s:is_win ? '^[A-Z]:\' : '^/')
+        let item = join([cwd, item], (s:is_win ? '\' : '/'))
+      endif
       if empty
         execute 'e' s:escape(item)
         let empty = 0
@@ -252,7 +256,6 @@ function! s:common_sink(action, lines) abort
     endfor
   catch /^Vim:Interrupt$/
   finally
-    let &autochdir = autochdir
     silent! autocmd! fzf_swap
   endtry
 endfunction
@@ -297,7 +300,7 @@ function! fzf#wrap(...)
   let expects = map(copy(args), 'type(v:val)')
   let tidx = 0
   for arg in copy(a:000)
-    let tidx = index(expects, type(arg), tidx)
+    let tidx = index(expects, type(arg) == 6 ? type(0) : type(arg), tidx)
     if tidx < 0
       throw 'Invalid arguments (expected: [name string] [opts dict] [fullscreen boolean])'
     endif
@@ -514,7 +517,7 @@ function! s:dopopd()
   if s:fzf_getcwd() ==# w:fzf_pushd.dir && (!&autochdir || w:fzf_pushd.bufname ==# bufname(''))
     execute w:fzf_pushd.command s:escape(w:fzf_pushd.origin)
   endif
-  unlet w:fzf_pushd
+  unlet! w:fzf_pushd
 endfunction
 
 function! s:xterm_launcher()
@@ -629,6 +632,9 @@ function! s:calc_size(max, val, dict)
   endif
 
   let opts = $FZF_DEFAULT_OPTS.' '.s:evaluate_opts(get(a:dict, 'options', ''))
+  if opts =~ 'preview'
+    return size
+  endif
   let margin = match(opts, '--inline-info\|--info[^-]\{-}inline') > match(opts, '--no-inline-info\|--info[^-]\{-}\(default\|hidden\)') ? 1 : 2
   let margin += stridx(opts, '--border') > stridx(opts, '--no-border') ? 2 : 0
   if stridx(opts, '--header') > stridx(opts, '--no-header')
@@ -652,8 +658,8 @@ function! s:split(dict)
   try
     if s:present(a:dict, 'window')
       if type(a:dict.window) == type({})
-        if !has('nvim') && !has('patch-8.2.191')
-          throw 'Vim 8.2.191 or later is required for pop-up window'
+        if !(has('nvim') ? has('nvim-0.4') : has('popupwin') && has('patch-8.2.191'))
+          throw 'Nvim 0.4+ or Vim 8.2.191+ with popupwin feature is required for pop-up window'
         end
         call s:popup(a:dict.window)
         let is_popup = 1
