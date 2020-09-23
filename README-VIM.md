@@ -127,8 +127,9 @@ let g:fzf_action = {
   \ 'ctrl-v': 'vsplit' }
 
 " Default fzf layout
-" - down / up / left / right
+" - down / up / left / right / window
 let g:fzf_layout = { 'down': '40%' }
+let g:fzf_layout = { 'window': { 'width': 0.9, 'height': 0.6 } }
 
 " You can set up fzf window using a Vim command (Neovim or latest Vim 8 required)
 let g:fzf_layout = { 'window': 'enew' }
@@ -290,8 +291,8 @@ When `window` entry is a dictionary, fzf will start in a popup window. The
 following options are allowed:
 
 - Required:
-    - `width` [float range [0 ~ 1]]
-    - `height` [float range [0 ~ 1]]
+    - `width` [float range [0 ~ 1]] or [integer range [8 ~ ]]
+    - `height` [float range [0 ~ 1]] or [integer range [4 ~ ]]
 - Optional:
     - `yoffset` [float default 0.5 range [0 ~ 1]]
     - `xoffset` [float default 0.5 range [0 ~ 1]]
@@ -386,8 +387,8 @@ The latest versions of Vim and Neovim include builtin terminal emulator
 
 ```vim
 " Required:
-" - width [float range [0 ~ 1]]
-" - height [float range [0 ~ 1]]
+" - width [float range [0 ~ 1]] or [integer range [8 ~ ]]
+" - height [float range [0 ~ 1]] or [integer range [4 ~ ]]
 "
 " Optional:
 " - xoffset [float default 0.5 range [0 ~ 1]]
@@ -416,8 +417,8 @@ When fzf starts in a terminal buffer, the file type of the buffer is set to
 `fzf`. So you can set up `FileType fzf` autocmd to customize the settings of
 the window.
 
-For example, if you use the default layout (`{'down': '40%'}`) on Neovim, you
-might want to temporarily disable the statusline for a cleaner look.
+For example, if you use a non-popup layout (e.g. `{'down': '40%'}`) on Neovim,
+you might want to temporarily disable the statusline for a cleaner look.
 
 ```vim
 if has('nvim') && !exists('g:fzf_layout')
